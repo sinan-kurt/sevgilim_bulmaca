@@ -1,26 +1,118 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fff8f3;
+  --foreground: #351b22;
+  --surface: #fffdf9;
+  --surface-rose: #fae5df;
+  --muted: #7d5b61;
+  --accent: #9b1f3c;
+  --accent-soft: #f2a7aa;
+  --gold: #d7a94f;
+  --border: #ead2ca;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-surface: var(--surface);
+  --color-surface-rose: var(--surface-rose);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-gold: var(--gold);
+  --color-border: var(--border);
+  --font-sans: "Nunito Sans", "Nunito Sans Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Cormorant Garamond", "Cormorant Garamond Fallback", Georgia, serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Nunito Sans", "Nunito Sans Fallback", ui-sans-serif, system-ui,
+    sans-serif;
+  overflow-x: clip;
+}
+
+html {
+  overflow-x: clip;
+}
+
+::selection {
+  background: #9b1f3c;
+  color: #fff8f3;
+}
+
+.paper-grain {
+  background-image:
+    radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.85) 0 1px, transparent 1px),
+    radial-gradient(circle at 72% 30%, rgba(155, 31, 60, 0.09) 0 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.6), rgba(250, 229, 223, 0.45));
+  background-size: 30px 30px, 42px 42px, 100% 100%;
+}
+
+.romantic-glow {
+  background:
+    radial-gradient(circle at 18% 18%, rgba(242, 167, 170, 0.45), transparent 32%),
+    radial-gradient(circle at 85% 16%, rgba(215, 169, 79, 0.22), transparent 28%),
+    radial-gradient(circle at 70% 80%, rgba(155, 31, 60, 0.18), transparent 34%);
+}
+
+.float-soft {
+  animation: float-soft 7s ease-in-out infinite;
+}
+
+.preview-shell {
+  width: min(100%, calc(100vw - 2.5rem));
+  max-width: 36rem;
+}
+
+.reveal-up {
+  animation: reveal-up 700ms ease both;
+}
+
+.reveal-up-delay {
+  animation: reveal-up 700ms 120ms ease both;
+}
+
+@keyframes float-soft {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-2deg);
+  }
+
+  50% {
+    transform: translateY(-12px) rotate(1deg);
+  }
+}
+
+@keyframes reveal-up {
+  from {
+    transform: translateY(18px);
+  }
+
+  to {
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (max-width: 639px) {
+  .float-soft {
+    animation: none;
+    transform: none;
+  }
+
+  .preview-shell {
+    max-width: 19.25rem;
+  }
 }
