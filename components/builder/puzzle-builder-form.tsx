@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { generateCrosswordPuzzle } from "@/lib/crossword";
 import {
   MIN_VALID_QUESTION_PAIRS,
@@ -48,6 +48,13 @@ export function PuzzleBuilderForm() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
+  const resultRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (draft) {
+      resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [draft?.id]);
 
   function clearGeneratedState() {
     setDraft(null);
@@ -291,32 +298,34 @@ export function PuzzleBuilderForm() {
         </div>
       </form>
 
-      {isSaving ? (
-        <div className="rounded-[2rem] border border-border bg-white/72 p-5 text-sm font-extrabold text-muted shadow-[0_18px_45px_rgba(80,35,42,0.08)]">
-          Paylaşım linki hazırlanıyor...
-        </div>
-      ) : null}
-      {saveError ? (
-        <div className="rounded-[2rem] border border-accent/25 bg-accent/10 p-5 text-sm font-bold leading-6 text-accent">
-          {saveError}
-        </div>
-      ) : null}
-      {share ? (
-        <ShareLinkCard
-          copyStatus={copyStatus}
-          onCopy={copyShareLink}
-          share={share}
-        />
-      ) : null}
-      {draft ? <SuccessPreviewCard draft={draft} /> : null}
-      {puzzle ? <CrosswordGridPreview puzzle={puzzle} /> : null}
-      {draft && puzzle ? (
-        <PlayableCrossword
-          finalMessage={draft.finalMessage}
-          key={draft.id}
-          puzzle={puzzle}
-        />
-      ) : null}
+      <div ref={resultRef}>
+        {isSaving ? (
+          <div className="rounded-[2rem] border border-border bg-white/72 p-5 text-sm font-extrabold text-muted shadow-[0_18px_45px_rgba(80,35,42,0.08)]">
+            Paylaşım linki hazırlanıyor...
+          </div>
+        ) : null}
+        {saveError ? (
+          <div className="rounded-[2rem] border border-accent/25 bg-accent/10 p-5 text-sm font-bold leading-6 text-accent">
+            {saveError}
+          </div>
+        ) : null}
+        {share ? (
+          <ShareLinkCard
+            copyStatus={copyStatus}
+            onCopy={copyShareLink}
+            share={share}
+          />
+        ) : null}
+        {draft ? <SuccessPreviewCard draft={draft} /> : null}
+        {puzzle ? <CrosswordGridPreview puzzle={puzzle} /> : null}
+        {draft && puzzle ? (
+          <PlayableCrossword
+            finalMessage={draft.finalMessage}
+            key={draft.id}
+            puzzle={puzzle}
+          />
+        ) : null}
+      </div>
     </div>
   );
 }
