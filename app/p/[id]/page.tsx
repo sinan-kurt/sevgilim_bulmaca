@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { cache } from "react";
 import { BrandLogo } from "@/components/brand-logo";
+import { CreatorShareBar } from "@/components/creator-share-bar";
 import { PlayableCrossword } from "@/components/playable-crossword";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 import type { CrosswordPuzzle, PuzzleQuestionPair, PuzzleTheme } from "@/types/crossword";
@@ -69,6 +70,7 @@ export default async function PuzzlePage({ params }: PuzzlePageProps) {
           </header>
 
           <div className="py-8 lg:py-14">
+            <CreatorShareBar puzzleId={puzzle.id} />
             <div className="mb-8 max-w-3xl">
               <p className="text-sm font-extrabold uppercase tracking-[0.24em] text-accent">
                 Sana özel bir bulmaca

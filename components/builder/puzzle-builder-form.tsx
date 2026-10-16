@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { CrosswordGridPreview } from "@/components/crossword-grid-preview";
 import { generateCrosswordPuzzle } from "@/lib/crossword";
 import { clueSuggestions } from "@/lib/landing-content";
+import { rememberCreatedPuzzle } from "@/lib/share";
 import {
   MAX_ANSWER_LENGTH,
   MIN_VALID_QUESTION_PAIRS,
@@ -55,7 +56,6 @@ export function PuzzleBuilderForm() {
   const [share, setShare] = useState<CreatePuzzleResponse | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
-  const [copyStatus, setCopyStatus] = useState("");
   const [hasLoadedDraft, setHasLoadedDraft] = useState(false);
   const lastFocusedRowId = useRef<string | null>(null);
 
@@ -130,7 +130,16 @@ export function PuzzleBuilderForm() {
   function clearGeneratedState() {
     setShare(null);
     setSaveError("");
-    setCopyStatus("");
+  }
+
+  function startNewPuzzle() {
+    setTitle("");
+    setFinalMessage("");
+    setTheme("romantic");
+    setRows(initialRows);
+    setErrors({ pairs: {} });
+    clearGeneratedState();
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function updateRow(
@@ -160,8 +169,6 @@ export function PuzzleBuilderForm() {
     event.preventDefault();
     setSaveError("");
     setShare(null);
-    setCopyStatus("");
-    let puzzleWindow: Window | null = null;
 
     const result = validatePuzzleDraftInput({
       title,
@@ -188,8 +195,6 @@ export function PuzzleBuilderForm() {
       });
       return;
     }
-
-    puzzleWindow = openPendingPuzzleWindow();
 
     const nextDraft: PuzzleDraft = {
       id: `draft-${Date.now()}`,
@@ -227,6 +232,11 @@ export function PuzzleBuilderForm() {
         );
       }
 
+      rememberCreatedPuzzle({
+        id: responseBody.id,
+        url: responseBody.url,
+        title: nextDraft.title,
+      });
       setShare(responseBody);
 
       try {
@@ -234,9 +244,7 @@ export function PuzzleBuilderForm() {
       } catch {
         // Ignore storage failures.
       }
-      openPuzzleLink(responseBody.url, puzzleWindow);
     } catch (error) {
-      puzzleWindow?.close();
       console.error("[builder] Puzzle save failed", {
         message:
           error instanceof Error
@@ -253,17 +261,8 @@ export function PuzzleBuilderForm() {
     }
   }
 
-  async function copyShareLink() {
-    if (!share) {
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(share.url);
-      setCopyStatus("Link kopyalandı.");
-    } catch {
-      setCopyStatus("Link kopyalanamadı; elle seçip kopyalayabilirsin.");
-    }
+  if (share) {
+    return <ShareLinkCard onCreateNew={startNewPuzzle} share={share} title={title.trim()} />;
   }
 
   const inputClass =
@@ -432,9 +431,6 @@ export function PuzzleBuilderForm() {
               {saveError}
             </div>
           ) : null}
-          {share ? (
-            <ShareLinkCard copyStatus={copyStatus} onCopy={copyShareLink} share={share} />
-          ) : null}
         </div>
       </form>
 
@@ -447,34 +443,6 @@ export function PuzzleBuilderForm() {
       </aside>
     </div>
   );
-}
-
-function openPendingPuzzleWindow() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const openedWindow = window.open("", "_blank");
-
-  if (!openedWindow) {
-    return null;
-  }
-
-  openedWindow.opener = null;
-  openedWindow.document.title = "Bulmaca hazırlanıyor";
-  openedWindow.document.body.innerHTML =
-    '<main style="min-height:100vh;display:grid;place-items:center;font-family:Georgia,serif;background:#fff4f2;color:#2c1f22;text-align:center;padding:24px;"><div><p style="letter-spacing:.18em;text-transform:uppercase;color:#9b1f3c;font-weight:800;">Sevgili Bulmacası</p><h1 style="font-size:32px;margin:12px 0 0;">Bulmacan hazırlanıyor...</h1></div></main>';
-
-  return openedWindow;
-}
-
-function openPuzzleLink(url: string, openedWindow: Window | null) {
-  if (openedWindow && !openedWindow.closed) {
-    openedWindow.location.href = url;
-    return;
-  }
-
-  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 async function parsePuzzleResponse(response: Response) {
