@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { puzzleThemes } from "@/lib/puzzle-validation";
+import { MIN_VALID_QUESTION_PAIRS, puzzleThemes } from "@/lib/puzzle-validation";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 import type {
   CreatePuzzleRequest,
@@ -54,23 +54,30 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error || !data?.id) {
+      console.error(
+        "[api/puzzles] Supabase insert failed",
+        getSafeErrorDetails(error ?? new Error("Insert returned no puzzle id.")),
+      );
+
       return NextResponse.json(
-        { error: "Bulmaca kaydedilemedi." },
+        { error: "Bulmaca kaydedilemedi. Lütfen tekrar dene." },
         { status: 500 },
       );
     }
 
     const response: CreatePuzzleResponse = {
       id: data.id,
-      url: `${request.nextUrl.origin}/p/${data.id}`,
+      url: `${getRequestOrigin(request)}/p/${data.id}`,
     };
 
     return NextResponse.json(response);
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Supabase yapılandırması hatalı.";
+    console.error("[api/puzzles] Unexpected create failure", getSafeErrorDetails(error));
 
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Bulmaca servisi şu anda yanıt veremiyor. Lütfen tekrar dene." },
+      { status: 500 },
+    );
   }
 }
 
@@ -90,8 +97,21 @@ function validateCreatePuzzlePayload(
     return { ok: false, error: "Geçersiz tema." };
   }
 
-  if (!Array.isArray(draft.pairs) || draft.pairs.length === 0) {
-    return { ok: false, error: "En az bir soru-cevap çifti gerekli." };
+  if (
+    typeof draft.title !== "string" ||
+    typeof draft.finalMessage !== "string"
+  ) {
+    return { ok: false, error: "Başlık ve final mesajı gerekli." };
+  }
+
+  if (
+    !Array.isArray(draft.pairs) ||
+    draft.pairs.length < MIN_VALID_QUESTION_PAIRS
+  ) {
+    return {
+      ok: false,
+      error: `En az ${MIN_VALID_QUESTION_PAIRS} soru-cevap çifti gerekli.`,
+    };
   }
 
   if (
@@ -115,4 +135,57 @@ function validateCreatePuzzlePayload(
   }
 
   return { ok: true, draft, crossword };
+}
+
+function getRequestOrigin(request: NextRequest) {
+  const forwardedHost = getFirstHeaderValue(request.headers.get("x-forwarded-host"));
+  const forwardedProto = getFirstHeaderValue(
+    request.headers.get("x-forwarded-proto"),
+  );
+  const host = forwardedHost ?? getFirstHeaderValue(request.headers.get("host"));
+
+  if (host) {
+    const protocol = forwardedProto ?? (isLocalHost(host) ? "http" : "https");
+
+    return `${protocol}://${host}`;
+  }
+
+  return request.nextUrl.origin;
+}
+
+function getFirstHeaderValue(value: string | null) {
+  return value?.split(",")[0]?.trim() || null;
+}
+
+function isLocalHost(host: string) {
+  return (
+    host.startsWith("localhost") ||
+    host.startsWith("127.0.0.1") ||
+    host.startsWith("[::1]")
+  );
+}
+
+function getSafeErrorDetails(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      name: error.name,
+    };
+  }
+
+  if (typeof error === "object" && error !== null) {
+    const maybeError = error as Record<string, unknown>;
+
+    return {
+      code: typeof maybeError.code === "string" ? maybeError.code : undefined,
+      message:
+        typeof maybeError.message === "string"
+          ? maybeError.message
+          : "Unknown Supabase error",
+    };
+  }
+
+  return {
+    message: typeof error === "string" ? error : "Unknown error",
+  };
 }

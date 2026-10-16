@@ -5,8 +5,8 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 let supabaseServerClient: SupabaseClient | null = null;
 
 export function getSupabaseServerClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = normalizeEnvValue(readRuntimeEnv("NEXT_PUBLIC_SUPABASE_URL"));
+  const serviceRoleKey = normalizeEnvValue(readRuntimeEnv("SUPABASE_SERVICE_ROLE_KEY"));
 
   if (!supabaseUrl) {
     throw new Error("NEXT_PUBLIC_SUPABASE_URL is not configured.");
@@ -26,4 +26,18 @@ export function getSupabaseServerClient() {
   }
 
   return supabaseServerClient;
+}
+
+function readRuntimeEnv(key: string) {
+  return process.env[key];
+}
+
+function normalizeEnvValue(value: string | undefined) {
+  const trimmedValue = value?.trim();
+
+  if (!trimmedValue) {
+    return undefined;
+  }
+
+  return trimmedValue.replace(/^["']|["']$/g, "");
 }

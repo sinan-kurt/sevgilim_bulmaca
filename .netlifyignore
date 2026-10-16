@@ -1,0 +1,11 @@
+.git
+.next
+.vercel
+node_modules
+out
+build
+coverage
+output
+.env*
+*.log
+*.tsbuildinfo
