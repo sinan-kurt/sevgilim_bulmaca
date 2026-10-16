@@ -116,3 +116,118 @@ html {
     max-width: 19.25rem;
   }
 }
+
+/* Puzzle themes: applied with data-theme on the shared puzzle page. */
+[data-theme="minimal"] {
+  --background: #f7f6f3;
+  --foreground: #1f1d1b;
+  --surface: #ffffff;
+  --surface-rose: #ecebe7;
+  --muted: #6b6762;
+  --accent: #2b2926;
+  --accent-soft: #c9c5bd;
+  --gold: #a39a8a;
+  --border: #e2dfd8;
+}
+
+[data-theme="night"] {
+  --background: #140d1f;
+  --foreground: #f6ecf2;
+  --surface: #221733;
+  --surface-rose: #362350;
+  --muted: #c3b2cf;
+  --accent: #e2557a;
+  --accent-soft: #8a4ca3;
+  --gold: #e8c46f;
+  --border: #3c2c55;
+  color-scheme: dark;
+}
+
+[data-theme="night"] .paper-grain {
+  background-image:
+    radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.5) 0 1px, transparent 1px),
+    radial-gradient(circle at 72% 30%, rgba(232, 196, 111, 0.35) 0 1px, transparent 1px),
+    linear-gradient(135deg, rgba(20, 13, 31, 0.6), rgba(54, 35, 80, 0.45));
+}
+
+[data-theme="night"] .romantic-glow {
+  background:
+    radial-gradient(circle at 18% 18%, rgba(226, 85, 122, 0.28), transparent 32%),
+    radial-gradient(circle at 85% 16%, rgba(232, 196, 111, 0.16), transparent 28%),
+    radial-gradient(circle at 70% 80%, rgba(138, 76, 163, 0.32), transparent 34%);
+}
+
+[data-theme="minimal"] .romantic-glow {
+  background: none;
+}
+
+[data-theme="night"] .bg-emerald-50 {
+  background-color: rgba(16, 185, 129, 0.18);
+}
+
+[data-theme="night"] .text-emerald-900 {
+  color: #b7f5d8;
+}
+
+/* Celebration shown when the puzzle is solved. */
+.celebration-backdrop {
+  background:
+    radial-gradient(circle at 50% 40%, rgba(242, 167, 170, 0.55), transparent 55%),
+    rgba(53, 27, 34, 0.72);
+  backdrop-filter: blur(6px);
+  animation: fade-in 320ms ease both;
+}
+
+.celebration-card {
+  animation: pop-in 520ms cubic-bezier(0.2, 0.9, 0.25, 1.25) both;
+}
+
+.floating-heart {
+  animation-name: float-up;
+  animation-timing-function: ease-in;
+  animation-iteration-count: infinite;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes float-up {
+  0% {
+    opacity: 0;
+    transform: translateY(0) rotate(-8deg);
+  }
+
+  15% {
+    opacity: 0.9;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-110vh) rotate(14deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .floating-heart {
+    display: none;
+  }
+}

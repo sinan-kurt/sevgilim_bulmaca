@@ -1,57 +1,55 @@
-import type { CrosswordTile, MemoryPrompt } from "@/types/crossword";
+import type { PuzzleQuestionPair } from "@/types/crossword";
 
 export const heroCopy = {
   titleLines: ["Sevgili", "Bulmacası"],
   description:
-    "Anılarınızı, şakalarınızı ve özel kelimelerinizi kişiye özel romantik bir bulmacaya dönüştürün.",
+    "Anılarınızı, iç şakalarınızı ve sadece ikinizin bildiği kelimeleri ona özel bir bulmacaya dönüştürün. Çözdüğünde senin mesajın açılsın.",
   cta: "Bulmacamı Oluştur",
+  note: "Ücretsiz · Üyelik gerekmez",
 } as const;
 
-export const crosswordTiles: CrosswordTile[] = [
-  { letter: "B", tone: "accent" },
-  { letter: "İ", tone: "ivory" },
-  { letter: "Z", tone: "ivory" },
-  { letter: "", tone: "empty" },
-  { letter: "K", tone: "rose" },
-  { letter: "A", tone: "rose" },
-  { letter: "L", tone: "rose" },
-  { letter: "", tone: "empty" },
-  { letter: "", tone: "empty" },
-  { letter: "İ", tone: "gold" },
-  { letter: "", tone: "empty" },
-  { letter: "", tone: "empty" },
-  { letter: "P", tone: "accent" },
-  { letter: "", tone: "empty" },
-  { letter: "A", tone: "rose" },
-  { letter: "N", tone: "rose" },
-  { letter: "I", tone: "gold" },
-  { letter: "M", tone: "rose" },
-  { letter: "", tone: "empty" },
-  { letter: "A", tone: "ivory" },
-  { letter: "Ş", tone: "ivory" },
-  { letter: "", tone: "empty" },
-  { letter: "I", tone: "ivory" },
-  { letter: "L", tone: "gold" },
-  { letter: "K", tone: "ivory" },
-  { letter: "", tone: "empty" },
-  { letter: "K", tone: "rose" },
-  { letter: "", tone: "empty" },
-  { letter: "G", tone: "ivory" },
-  { letter: "Ü", tone: "ivory" },
-  { letter: "L", tone: "gold" },
-  { letter: "Ü", tone: "ivory" },
-  { letter: "Ş", tone: "ivory" },
-  { letter: "", tone: "empty" },
-  { letter: "M", tone: "accent" },
+/** Example puzzle shown on the landing page. Every answer here is in the grid. */
+export const demoPairs: PuzzleQuestionPair[] = [
+  { clue: "İlk buluşmamızda içtiğimiz şey", answer: "KAHVE" },
+  { clue: "İlk tanıştığımız semt", answer: "KADIKÖY" },
+  { clue: "Birlikte izlemeye doyamadığımız şey", answer: "DENİZ" },
+  { clue: "Ona taktığım lakap", answer: "BALIM" },
+  { clue: "Her gece son mesajımız", answer: "İYİGECELER" },
 ];
 
-export const memoryPrompts: MemoryPrompt[] = [
+export const demoFinalMessage =
+  "İşte böyle! Senin bulmacanda bu mesajı sen yazacaksın ❤️";
+
+export const howItWorksSteps = [
   {
-    title: "1. İlk mesajımızda geçen kelime",
-    description: "Cevap: merhaba ama biraz daha heyecanlı hali.",
+    title: "Anılarını yaz",
+    description:
+      "İpucu olarak bir anı, cevap olarak tek bir kelime. İlk buluştuğunuz yer, ona taktığın lakap, sadece ikinizin güldüğü şaka…",
   },
   {
-    title: "2. En çok güldüğümüz ortak şaka",
-    description: "Bulmacaya sadece ikinizin anlayacağı bir iz bırakır.",
+    title: "Bulmaca kendiliğinden kurulsun",
+    description:
+      "Kelimeler yazarken ızgaraya yerleşir. Sığmayan bir kelime olursa hemen görürsün, göndermeden düzeltirsin.",
   },
-];
+  {
+    title: "Linki gönder",
+    description:
+      "Sana özel bir link oluşur. Ona WhatsApp'tan gönder; bulmacayı çözdüğünde yazdığın final mesajı ekranında açılır.",
+  },
+] as const;
+
+/** Ready-made clue ideas for the builder. */
+export const clueSuggestions = [
+  "İlk tanıştığımız yer",
+  "İlk buluşmamızda yediğimiz şey",
+  "Ona taktığım lakap",
+  "Birlikte izlediğimiz ilk film",
+  "En sevdiği renk",
+  "Sadece ikimizin anladığı şaka",
+  "Birlikte gitmek istediğimiz şehir",
+  "İlk mesajımda yazdığım kelime",
+  "Bizim şarkımızın sanatçısı",
+  "Evcil hayvanımızın / hayalimizdeki kedinin adı",
+  "Bana en çok söylediği kelime",
+  "İlk hediyem",
+] as const;

@@ -1,5 +1,13 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PuzzleBuilderForm } from "@/components/builder/puzzle-builder-form";
+import { BrandLogo } from "@/components/brand-logo";
+
+export const metadata: Metadata = {
+  title: "Bulmacanı Oluştur | Sevgili Bulmacası",
+  description:
+    "Birkaç anı ve kelimeyle ona özel bir bulmaca hazırla, linkini gönder.",
+};
 
 export default function BuilderPage() {
   return (
@@ -8,23 +16,7 @@ export default function BuilderPage() {
       <section className="paper-grain relative isolate min-h-screen overflow-hidden px-5 py-6 sm:px-8 lg:px-12">
         <div className="mx-auto w-full max-w-7xl">
           <header className="flex items-center justify-between gap-4">
-            <Link
-              href="/"
-              className="group flex items-center gap-3 text-left"
-              aria-label="Sevgili Bulmacası ana sayfa"
-            >
-              <span className="grid size-11 place-items-center rounded-2xl bg-accent text-lg font-black text-white shadow-[0_12px_30px_rgba(155,31,60,0.22)] transition duration-300 group-hover:-rotate-3">
-                S
-              </span>
-              <span className="flex flex-col">
-                <span className="font-display text-2xl font-bold leading-none tracking-[-0.04em]">
-                  Sevgili
-                </span>
-                <span className="text-xs font-extrabold uppercase tracking-[0.28em] text-muted">
-                  Bulmacası
-                </span>
-              </span>
-            </Link>
+            <BrandLogo />
 
             <Link
               href="/"
@@ -34,15 +26,15 @@ export default function BuilderPage() {
             </Link>
           </header>
 
-          <div className="grid gap-10 py-12 lg:grid-cols-[0.78fr_1.22fr] lg:py-16">
-            <div className="max-w-xl">
-              <h1 className="font-display text-[clamp(3.6rem,8vw,7rem)] font-bold leading-[0.82] tracking-[-0.06em]">
+          <div className="py-10 lg:py-14">
+            <div className="mb-8 max-w-2xl">
+              <h1 className="font-display text-[clamp(3.2rem,8vw,6rem)] font-bold leading-[0.85] tracking-[-0.06em]">
                 Bulmacanı tasarla
               </h1>
-              <p className="mt-7 text-lg leading-8 text-muted">
-                İpuçlarını ve cevaplarını gir; biz şimdilik taslağı doğrulayıp
-                konsola yazdıralım. Sonraki adımda bu taslak gerçek bulmaca
-                üretiminin kalbi olacak.
+              <p className="mt-5 text-lg leading-8 text-muted">
+                Her soru için bir ipucu ve tek kelimelik bir cevap yaz. Kelimeler
+                yazdıkça önizlemede ızgaraya yerleşir. Taslağın bu cihazda otomatik
+                saklanır.
               </p>
             </div>
 

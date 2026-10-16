@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { cache } from "react";
+import { BrandLogo } from "@/components/brand-logo";
 import { PlayableCrossword } from "@/components/playable-crossword";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 import type { CrosswordPuzzle, PuzzleQuestionPair, PuzzleTheme } from "@/types/crossword";
@@ -19,6 +22,32 @@ type PuzzleRow = {
   created_at: string;
 };
 
+const shareImage = {
+  url: "/opengraph-image",
+  width: 1200,
+  height: 630,
+  alt: "Sevgili Bulmacası: sana özel bir bulmaca",
+};
+
+// Link previews must not spoil the puzzle, so they never include its content.
+export const metadata: Metadata = {
+  title: "Sana özel bir bulmaca var 💌",
+  description:
+    "Biri senin için kişisel bir bulmaca hazırladı. İpuçları sadece ikinizin bildiği şeyler; çözünce sürpriz mesajı göreceksin.",
+  robots: { index: false, follow: false },
+  openGraph: {
+    title: "Sana özel bir bulmaca var 💌",
+    description: "Çöz, sonunda seni bir sürpriz bekliyor.",
+    type: "website",
+    locale: "tr_TR",
+    images: [shareImage],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: [shareImage],
+  },
+};
+
 export default async function PuzzlePage({ params }: PuzzlePageProps) {
   const { id } = await params;
   const puzzle = await getPuzzle(id);
@@ -28,47 +57,39 @@ export default async function PuzzlePage({ params }: PuzzlePageProps) {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-background text-foreground">
+    <main
+      data-theme={puzzle.theme}
+      className="relative min-h-screen overflow-hidden bg-background text-foreground"
+    >
       <div className="romantic-glow pointer-events-none absolute inset-0" />
-      <section className="paper-grain relative isolate min-h-screen overflow-hidden px-5 py-6 sm:px-8 lg:px-12">
+      <section className="paper-grain relative isolate min-h-screen overflow-hidden px-4 py-6 sm:px-8 lg:px-12">
         <div className="mx-auto w-full max-w-7xl">
           <header className="flex items-center justify-between gap-4">
-            <Link
-              href="/"
-              className="group flex items-center gap-3 text-left"
-              aria-label="Sevgili Bulmacası ana sayfa"
-            >
-              <span className="grid size-11 place-items-center rounded-2xl bg-accent text-lg font-black text-white shadow-[0_12px_30px_rgba(155,31,60,0.22)] transition duration-300 group-hover:-rotate-3">
-                S
-              </span>
-              <span className="flex flex-col">
-                <span className="font-display text-2xl font-bold leading-none tracking-[-0.04em]">
-                  Sevgili
-                </span>
-                <span className="text-xs font-extrabold uppercase tracking-[0.28em] text-muted">
-                  Bulmacası
-                </span>
-              </span>
-            </Link>
+            <BrandLogo />
           </header>
 
-          <div className="py-12 lg:py-16">
+          <div className="py-8 lg:py-14">
             <div className="mb-8 max-w-3xl">
               <p className="text-sm font-extrabold uppercase tracking-[0.24em] text-accent">
-                Paylaşılan bulmaca
+                Sana özel bir bulmaca
               </p>
               <h1 className="mt-4 font-display text-[clamp(3.2rem,8vw,6.8rem)] font-bold leading-[0.85] tracking-[-0.06em]">
                 {puzzle.title}
               </h1>
               <p className="mt-5 max-w-xl text-lg leading-8 text-muted">
-                Tema: <span className="font-extrabold">{puzzle.theme}</span>
+                İpuçları sadece ikinizin bildiği şeyler. Hepsini çözdüğünde seni
+                bir mesaj bekliyor.
               </p>
             </div>
 
             <PlayableCrossword
+              eyebrow="Hadi başla"
               finalMessage={puzzle.final_message}
               key={puzzle.id}
               puzzle={puzzle.crossword}
+              showCreateCta
+              storageKey={`sevgili-bulmaca:cozum:${puzzle.id}`}
+              title="Şimdi çözme zamanı"
             />
           </div>
         </div>
@@ -77,7 +98,15 @@ export default async function PuzzlePage({ params }: PuzzlePageProps) {
   );
 }
 
-async function getPuzzle(id: string): Promise<PuzzleRow | null> {
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const getPuzzle = cache(async (id: string): Promise<PuzzleRow | null> => {
+  // Skip the database round trip for links that cannot be valid.
+  if (!UUID_PATTERN.test(id)) {
+    return null;
+  }
+
   try {
     const supabase = getSupabaseServerClient();
     const { data, error } = await supabase
@@ -94,7 +123,7 @@ async function getPuzzle(id: string): Promise<PuzzleRow | null> {
   } catch {
     return null;
   }
-}
+});
 
 function PuzzleNotFound() {
   return (
@@ -109,8 +138,8 @@ function PuzzleNotFound() {
             Bu link biraz kaybolmuş.
           </h1>
           <p className="mt-5 leading-7 text-muted">
-            Bulmaca silinmiş, link yanlış kopyalanmış ya da Supabase bağlantısı
-            henüz yapılandırılmamış olabilir.
+            Link eksik kopyalanmış olabilir. Linki gönderen kişiden tekrar
+            göndermesini isteyebilirsin.
           </p>
           <Link
             href="/builder"

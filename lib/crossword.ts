@@ -1,3 +1,4 @@
+import { CROSSWORD_GRID_SIZE } from "@/lib/crossword-constants";
 import { normalizePuzzleAnswer } from "@/lib/puzzle-validation";
 import type {
   CrosswordDirection,
@@ -6,7 +7,7 @@ import type {
   PuzzleQuestionPair,
 } from "@/types/crossword";
 
-export const CROSSWORD_GRID_SIZE = 15;
+export { CROSSWORD_GRID_SIZE };
 
 type Board = (string | null)[][];
 
@@ -319,4 +320,50 @@ export function generateCrosswordPuzzle(
     placedWords: numberedWords,
     unplacedWords,
   };
+}
+
+/**
+ * Returns the smallest rectangle that contains every letter, so the grid can
+ * be drawn without the empty margins of the 15x15 working board.
+ */
+export function getCrosswordBounds(puzzle: CrosswordPuzzle) {
+  let minRow = Infinity;
+  let maxRow = -Infinity;
+  let minCol = Infinity;
+  let maxCol = -Infinity;
+
+  for (const row of puzzle.grid) {
+    for (const cell of row) {
+      if (cell.isBlocked) {
+        continue;
+      }
+
+      minRow = Math.min(minRow, cell.row);
+      maxRow = Math.max(maxRow, cell.row);
+      minCol = Math.min(minCol, cell.col);
+      maxCol = Math.max(maxCol, cell.col);
+    }
+  }
+
+  if (minRow === Infinity) {
+    return { minRow: 0, maxRow: -1, minCol: 0, maxCol: -1, rows: 0, cols: 0 };
+  }
+
+  return {
+    minRow,
+    maxRow,
+    minCol,
+    maxCol,
+    rows: maxRow - minRow + 1,
+    cols: maxCol - minCol + 1,
+  };
+}
+
+export function getCroppedGrid(puzzle: CrosswordPuzzle) {
+  const bounds = getCrosswordBounds(puzzle);
+  const cells = puzzle.grid
+    .slice(bounds.minRow, bounds.maxRow + 1)
+    .flatMap((row) => row.slice(bounds.minCol, bounds.maxCol + 1));
+
+  return { ...bounds, cells };
 }

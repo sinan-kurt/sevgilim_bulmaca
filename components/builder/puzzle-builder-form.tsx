@@ -1,26 +1,36 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { CrosswordGridPreview } from "@/components/crossword-grid-preview";
 import { generateCrosswordPuzzle } from "@/lib/crossword";
+import { clueSuggestions } from "@/lib/landing-content";
 import {
+  MAX_ANSWER_LENGTH,
   MIN_VALID_QUESTION_PAIRS,
+  normalizePuzzleAnswer,
+  puzzleThemeLabels,
   puzzleThemes,
   validatePuzzleDraftInput,
 } from "@/lib/puzzle-validation";
 import type {
   CreatePuzzleRequest,
   CreatePuzzleResponse,
-  CrosswordPuzzle,
   PuzzleDraft,
   PuzzleQuestionInput,
   PuzzleTheme,
   PuzzleValidationErrors,
 } from "@/types/crossword";
-import { CrosswordGridPreview } from "../crossword-grid-preview";
-import { PlayableCrossword } from "../playable-crossword";
 import { QuestionAnswerRow } from "./question-answer-row";
 import { ShareLinkCard } from "./share-link-card";
-import { SuccessPreviewCard } from "./success-preview-card";
+
+const DRAFT_STORAGE_KEY = "sevgili-bulmaca:taslak";
+
+type StoredDraft = {
+  title: string;
+  finalMessage: string;
+  theme: PuzzleTheme;
+  rows: PuzzleQuestionInput[];
+};
 
 const initialRows: PuzzleQuestionInput[] = Array.from({ length: 5 }, (_, index) => ({
   id: `question-${index + 1}`,
@@ -42,23 +52,82 @@ export function PuzzleBuilderForm() {
   const [theme, setTheme] = useState<PuzzleTheme>("romantic");
   const [rows, setRows] = useState<PuzzleQuestionInput[]>(initialRows);
   const [errors, setErrors] = useState<PuzzleValidationErrors>({ pairs: {} });
-  const [draft, setDraft] = useState<PuzzleDraft | null>(null);
-  const [puzzle, setPuzzle] = useState<CrosswordPuzzle | null>(null);
   const [share, setShare] = useState<CreatePuzzleResponse | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
-  const resultRef = useRef<HTMLDivElement>(null);
+  const [hasLoadedDraft, setHasLoadedDraft] = useState(false);
+  const lastFocusedRowId = useRef<string | null>(null);
+
+  // Keep the creator's work if the tab is closed or refreshed.
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(DRAFT_STORAGE_KEY);
+
+      if (saved) {
+        const draft = JSON.parse(saved) as Partial<StoredDraft>;
+        /* eslint-disable react-hooks/set-state-in-effect -- one-time hydration from storage */
+        if (typeof draft.title === "string") setTitle(draft.title);
+        if (typeof draft.finalMessage === "string") setFinalMessage(draft.finalMessage);
+        if (draft.theme && puzzleThemes.includes(draft.theme)) setTheme(draft.theme);
+        if (Array.isArray(draft.rows) && draft.rows.length > 0) setRows(draft.rows);
+        /* eslint-enable react-hooks/set-state-in-effect */
+      }
+    } catch {
+      // Storage unavailable: start empty.
+    }
+
+    setHasLoadedDraft(true);
+  }, []);
 
   useEffect(() => {
-    if (draft) {
-      resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!hasLoadedDraft) {
+      return;
     }
-  }, [draft?.id]);
+
+    try {
+      const draft: StoredDraft = { title, finalMessage, theme, rows };
+      window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+    } catch {
+      // Ignore storage failures.
+    }
+  }, [hasLoadedDraft, title, finalMessage, theme, rows]);
+
+  const completePairs = useMemo(
+    () =>
+      rows
+        .map((row) => ({ clue: row.clue.trim(), answer: normalizePuzzleAnswer(row.answer) }))
+        .filter((pair) => {
+          const length = Array.from(pair.answer).length;
+          return pair.clue && length >= 2 && length <= MAX_ANSWER_LENGTH;
+        }),
+    [rows],
+  );
+  const livePuzzle = useMemo(
+    () => (completePairs.length > 0 ? generateCrosswordPuzzle(completePairs) : null),
+    [completePairs],
+  );
+  const usedClues = new Set(rows.map((row) => row.clue.trim()));
+
+  function applySuggestion(suggestion: string) {
+    const focusedRow = rows.find(
+      (row) => row.id === lastFocusedRowId.current && !row.clue.trim(),
+    );
+    const targetRow = focusedRow ?? rows.find((row) => !row.clue.trim());
+
+    if (targetRow) {
+      updateRow(targetRow.id, "clue", suggestion);
+      document.getElementById(`${targetRow.id}-answer`)?.focus();
+      return;
+    }
+
+    const newRow = { ...createQuestionRow(), clue: suggestion };
+    setRows((currentRows) => [...currentRows, newRow]);
+    clearGeneratedState();
+    window.setTimeout(() => document.getElementById(`${newRow.id}-answer`)?.focus(), 0);
+  }
 
   function clearGeneratedState() {
-    setDraft(null);
-    setPuzzle(null);
     setShare(null);
     setSaveError("");
     setCopyStatus("");
@@ -92,6 +161,7 @@ export function PuzzleBuilderForm() {
     setSaveError("");
     setShare(null);
     setCopyStatus("");
+    let puzzleWindow: Window | null = null;
 
     const result = validatePuzzleDraftInput({
       title,
@@ -107,6 +177,20 @@ export function PuzzleBuilderForm() {
       return;
     }
 
+    const nextPuzzle = generateCrosswordPuzzle(result.normalizedPairs);
+
+    if (nextPuzzle.unplacedWords.length > 0) {
+      setErrors({
+        ...result.errors,
+        form: `${nextPuzzle.unplacedWords
+          .map((word) => word.answer)
+          .join(", ")} ızgaraya sığmadı. Bu cevabı kısaltmayı ya da değiştirmeyi dene.`,
+      });
+      return;
+    }
+
+    puzzleWindow = openPendingPuzzleWindow();
+
     const nextDraft: PuzzleDraft = {
       id: `draft-${Date.now()}`,
       title: title.trim(),
@@ -115,12 +199,6 @@ export function PuzzleBuilderForm() {
       pairs: result.normalizedPairs,
       createdAt: new Date().toISOString(),
     };
-    const nextPuzzle = generateCrosswordPuzzle(nextDraft.pairs);
-
-    console.log("PuzzleDraft", nextDraft);
-    console.log("CrosswordPuzzle", nextPuzzle);
-    setDraft(nextDraft);
-    setPuzzle(nextPuzzle);
 
     const payload: CreatePuzzleRequest = {
       draft: nextDraft,
@@ -137,7 +215,7 @@ export function PuzzleBuilderForm() {
         },
         body: JSON.stringify(payload),
       });
-      const responseBody = (await response.json()) as
+      const responseBody = (await parsePuzzleResponse(response)) as
         | CreatePuzzleResponse
         | { error?: string };
 
@@ -150,7 +228,21 @@ export function PuzzleBuilderForm() {
       }
 
       setShare(responseBody);
+
+      try {
+        window.localStorage.removeItem(DRAFT_STORAGE_KEY);
+      } catch {
+        // Ignore storage failures.
+      }
+      openPuzzleLink(responseBody.url, puzzleWindow);
     } catch (error) {
+      puzzleWindow?.close();
+      console.error("[builder] Puzzle save failed", {
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unexpected puzzle save failure",
+      });
       setSaveError(
         error instanceof Error
           ? error.message
@@ -174,37 +266,36 @@ export function PuzzleBuilderForm() {
     }
   }
 
+  const inputClass =
+    "mt-2 w-full rounded-2xl border border-border bg-white/75 px-4 text-base text-foreground outline-none transition placeholder:text-muted/55 focus:border-accent focus:ring-4 focus:ring-accent/10";
+
   return (
-    <div className="grid gap-6">
+    <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
       <form
         onSubmit={handleSubmit}
+        noValidate
         className="rounded-[2rem] border border-white/80 bg-surface/86 p-5 shadow-[0_28px_80px_rgba(80,35,42,0.14)] backdrop-blur sm:p-7"
       >
-        <div className="grid gap-5 lg:grid-cols-[1fr_0.45fr]">
+        <div className="grid gap-5 sm:grid-cols-[1fr_0.5fr]">
           <div>
-            <label
-              htmlFor="puzzle-title"
-              className="text-sm font-extrabold text-foreground"
-            >
+            <label htmlFor="puzzle-title" className="text-sm font-extrabold text-foreground">
               Bulmaca başlığı
             </label>
             <input
               id="puzzle-title"
               value={title}
+              maxLength={60}
               onChange={(event) => {
                 setTitle(event.target.value);
                 clearGeneratedState();
               }}
               placeholder="Bizim İlk Bulmacamız"
-              className="mt-2 h-12 w-full rounded-2xl border border-border bg-white/75 px-4 text-base font-extrabold text-foreground outline-none transition placeholder:text-muted/55 focus:border-accent focus:ring-4 focus:ring-accent/10"
+              className={`${inputClass} h-12 font-extrabold`}
             />
           </div>
 
           <div>
-            <label
-              htmlFor="puzzle-theme"
-              className="text-sm font-extrabold text-foreground"
-            >
+            <label htmlFor="puzzle-theme" className="text-sm font-extrabold text-foreground">
               Tema
             </label>
             <select
@@ -214,11 +305,11 @@ export function PuzzleBuilderForm() {
                 setTheme(event.target.value as PuzzleTheme);
                 clearGeneratedState();
               }}
-              className="mt-2 h-12 w-full rounded-2xl border border-border bg-white/75 px-4 text-base font-extrabold text-foreground outline-none transition focus:border-accent focus:ring-4 focus:ring-accent/10"
+              className={`${inputClass} h-12 font-extrabold`}
             >
               {puzzleThemes.map((themeOption) => (
                 <option value={themeOption} key={themeOption}>
-                  {themeOption}
+                  {puzzleThemeLabels[themeOption]}
                 </option>
               ))}
             </select>
@@ -226,106 +317,173 @@ export function PuzzleBuilderForm() {
         </div>
 
         <div className="mt-5">
-          <label
-            htmlFor="final-message"
-            className="text-sm font-extrabold text-foreground"
-          >
+          <label htmlFor="final-message" className="text-sm font-extrabold text-foreground">
             Final mesajı
           </label>
+          <p className="mt-1 text-sm leading-6 text-muted">
+            Bulmacayı bitirdiği anda ekranında bu mesaj açılacak.
+          </p>
           <textarea
             id="final-message"
             value={finalMessage}
+            maxLength={500}
             onChange={(event) => {
               setFinalMessage(event.target.value);
               clearGeneratedState();
             }}
-            rows={4}
+            rows={3}
             placeholder="Bulmacayı çözdün... çünkü beni en iyi sen tanıyorsun ❤️"
-            className="mt-2 min-h-28 w-full resize-y rounded-2xl border border-border bg-white/75 px-4 py-3 text-base font-semibold text-foreground outline-none transition placeholder:text-muted/55 focus:border-accent focus:ring-4 focus:ring-accent/10"
+            className={`${inputClass} min-h-24 resize-y py-3 font-semibold`}
           />
         </div>
 
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="font-display text-4xl font-bold leading-none tracking-[-0.04em]">
-              Sorular
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              En az {MIN_VALID_QUESTION_PAIRS} geçerli ipucu ve cevap çifti
-              gerekli.
-            </p>
+        <div className="mt-8">
+          <h2 className="font-display text-4xl font-bold leading-none tracking-[-0.04em]">
+            Sorular
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-muted">
+            En az {MIN_VALID_QUESTION_PAIRS} soru. İpucu bir anı, cevap tek bir
+            kelime olsun. Ne yazacağını bilemiyorsan bir fikre dokun:
+          </p>
+          <div className="-mx-5 mt-3 flex gap-2 overflow-x-auto px-5 pb-2 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+            {clueSuggestions
+              .filter((suggestion) => !usedClues.has(suggestion))
+              .slice(0, 8)
+              .map((suggestion) => (
+                <button
+                  type="button"
+                  key={suggestion}
+                  onClick={() => applySuggestion(suggestion)}
+                  className="shrink-0 rounded-full border border-accent/20 bg-white/70 px-3 py-1.5 text-xs font-extrabold text-accent transition hover:border-accent hover:bg-accent hover:text-white"
+                >
+                  + {suggestion}
+                </button>
+              ))}
           </div>
-          <button
-            type="button"
-            onClick={addRow}
-            className="inline-flex min-h-12 items-center justify-center rounded-full border border-accent/20 bg-accent/10 px-5 text-sm font-extrabold text-accent transition hover:-translate-y-0.5 hover:bg-accent hover:text-white"
-          >
-            Yeni soru ekle
-          </button>
         </div>
-
-        {errors.form ? (
-          <div className="mt-5 rounded-2xl border border-accent/25 bg-accent/10 p-4 text-sm font-bold leading-6 text-accent">
-            {errors.form}
-          </div>
-        ) : null}
 
         <div className="mt-5 grid gap-4">
           {rows.map((row, index) => (
             <QuestionAnswerRow
+              canRemove={rows.length > MIN_VALID_QUESTION_PAIRS}
               error={errors.pairs[row.id]}
               index={index}
               key={row.id}
               onChange={updateRow}
+              onFocusClue={(id) => {
+                lastFocusedRowId.current = id;
+              }}
               onRemove={removeRow}
               row={row}
             />
           ))}
         </div>
 
+        <button
+          type="button"
+          onClick={addRow}
+          className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-2xl border border-dashed border-accent/35 bg-accent/5 px-5 text-sm font-extrabold text-accent transition hover:bg-accent/10"
+        >
+          + Yeni soru ekle
+        </button>
+
+        <div className="mt-6 lg:hidden">
+          <CrosswordGridPreview
+            minCount={MIN_VALID_QUESTION_PAIRS}
+            puzzle={livePuzzle}
+            validCount={completePairs.length}
+          />
+        </div>
+
+        {errors.form ? (
+          <div
+            role="alert"
+            className="mt-5 rounded-2xl border border-accent/25 bg-accent/10 p-4 text-sm font-bold leading-6 text-accent"
+          >
+            {errors.form}
+          </div>
+        ) : null}
+
         <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm leading-6 text-muted">
-            Gönderince yerel önizleme hemen görünecek, ardından paylaşılabilir
-            link Supabase üzerinden oluşturulacak.
+            Sana özel, tahmin edilemeyen bir link oluşturulur. Linki gönderdiğin
+            kişi bulmacayı açabilir.
           </p>
           <button
             type="submit"
             disabled={isSaving}
-            className="inline-flex min-h-14 items-center justify-center rounded-full bg-accent px-8 py-4 text-base font-extrabold text-white shadow-[0_18px_45px_rgba(155,31,60,0.25)] transition hover:-translate-y-0.5 hover:bg-[#7f1830] focus:outline-none focus:ring-4 focus:ring-accent/25 disabled:cursor-not-allowed disabled:opacity-70"
+            className="inline-flex min-h-14 shrink-0 items-center justify-center rounded-full bg-accent px-8 py-4 text-base font-extrabold text-white shadow-[0_18px_45px_rgba(155,31,60,0.25)] transition hover:-translate-y-0.5 hover:bg-[#7f1830] focus:outline-none focus:ring-4 focus:ring-accent/25 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {isSaving ? "Kaydediliyor..." : "Taslağı oluştur"}
+            {isSaving ? "Hazırlanıyor..." : "Bulmacayı Oluştur"}
           </button>
+        </div>
+
+        <div className="mt-6 grid gap-4 empty:hidden" aria-live="polite">
+          {isSaving ? (
+            <div className="rounded-[1.5rem] border border-border bg-white/72 p-5 text-sm font-extrabold text-muted">
+              Paylaşım linki hazırlanıyor...
+            </div>
+          ) : null}
+          {saveError ? (
+            <div
+              role="alert"
+              className="rounded-[1.5rem] border border-accent/25 bg-accent/10 p-5 text-sm font-bold leading-6 text-accent"
+            >
+              {saveError}
+            </div>
+          ) : null}
+          {share ? (
+            <ShareLinkCard copyStatus={copyStatus} onCopy={copyShareLink} share={share} />
+          ) : null}
         </div>
       </form>
 
-      <div ref={resultRef}>
-        {isSaving ? (
-          <div className="rounded-[2rem] border border-border bg-white/72 p-5 text-sm font-extrabold text-muted shadow-[0_18px_45px_rgba(80,35,42,0.08)]">
-            Paylaşım linki hazırlanıyor...
-          </div>
-        ) : null}
-        {saveError ? (
-          <div className="rounded-[2rem] border border-accent/25 bg-accent/10 p-5 text-sm font-bold leading-6 text-accent">
-            {saveError}
-          </div>
-        ) : null}
-        {share ? (
-          <ShareLinkCard
-            copyStatus={copyStatus}
-            onCopy={copyShareLink}
-            share={share}
-          />
-        ) : null}
-        {draft ? <SuccessPreviewCard draft={draft} /> : null}
-        {puzzle ? <CrosswordGridPreview puzzle={puzzle} /> : null}
-        {draft && puzzle ? (
-          <PlayableCrossword
-            finalMessage={draft.finalMessage}
-            key={draft.id}
-            puzzle={puzzle}
-          />
-        ) : null}
-      </div>
+      <aside className="hidden lg:sticky lg:top-6 lg:block">
+        <CrosswordGridPreview
+          minCount={MIN_VALID_QUESTION_PAIRS}
+          puzzle={livePuzzle}
+          validCount={completePairs.length}
+        />
+      </aside>
     </div>
   );
+}
+
+function openPendingPuzzleWindow() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const openedWindow = window.open("", "_blank");
+
+  if (!openedWindow) {
+    return null;
+  }
+
+  openedWindow.opener = null;
+  openedWindow.document.title = "Bulmaca hazırlanıyor";
+  openedWindow.document.body.innerHTML =
+    '<main style="min-height:100vh;display:grid;place-items:center;font-family:Georgia,serif;background:#fff4f2;color:#2c1f22;text-align:center;padding:24px;"><div><p style="letter-spacing:.18em;text-transform:uppercase;color:#9b1f3c;font-weight:800;">Sevgili Bulmacası</p><h1 style="font-size:32px;margin:12px 0 0;">Bulmacan hazırlanıyor...</h1></div></main>';
+
+  return openedWindow;
+}
+
+function openPuzzleLink(url: string, openedWindow: Window | null) {
+  if (openedWindow && !openedWindow.closed) {
+    openedWindow.location.href = url;
+    return;
+  }
+
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+async function parsePuzzleResponse(response: Response) {
+  try {
+    return (await response.json()) as unknown;
+  } catch {
+    return {
+      error:
+        "Sunucudan geçerli bir yanıt alınamadı. Lütfen birazdan tekrar dene.",
+    };
+  }
 }

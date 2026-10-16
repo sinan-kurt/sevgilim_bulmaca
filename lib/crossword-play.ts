@@ -24,6 +24,15 @@ export function normalizeTypedLetter(value: string) {
   return latestCharacter ? latestCharacter.toLocaleUpperCase("tr-TR") : "";
 }
 
+/**
+ * Phone keyboards make İ/I easy to mix up, so the check treats them as the
+ * same letter. Everything else must match exactly.
+ */
+export function lettersMatch(typed: string, expected: string) {
+  const fold = (letter: string) => (letter === "İ" ? "I" : letter);
+  return typed !== "" && fold(typed) === fold(expected);
+}
+
 export function buildSolutionMap(puzzle: CrosswordPuzzle) {
   const solution: Record<string, string> = {};
 
@@ -48,7 +57,7 @@ export function evaluateCrossword(
 
   for (const [key, expectedLetter] of Object.entries(solution)) {
     const typedLetter = normalizeTypedLetter(values[key] ?? "");
-    const isCorrect = typedLetter === expectedLetter;
+    const isCorrect = lettersMatch(typedLetter, expectedLetter);
 
     statuses[key] = isCorrect ? "correct" : "incorrect";
 
